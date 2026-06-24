@@ -1,19 +1,26 @@
 use anyhow::Result;
+use clap::Parser;
 use std::path::Path;
 
 mod errors;
 mod node;
-mod scanner;
 mod renderer;
+mod scanner;
 
 use scanner::read_directory_recursively;
 
+#[derive(Parser)]
+struct Args {
+    #[arg(short, long, default_value_t = 1)]
+    print_files: u8,
+}
+
 fn main() -> Result<()> {
     let path = Path::new(".");
-
+    let args = Args::parse();
     let tree = read_directory_recursively(path)?;
 
-    tree.draw();
+    tree.draw(args.print_files > 0);
 
     Ok(())
 }

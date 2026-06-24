@@ -20,8 +20,8 @@ impl DirNode {
         }
     }
 
-    pub fn draw(&self) {
-        draw_tree(self, 0);
+    pub fn draw(&self, print_files: bool) {
+        draw_tree(self, 0, print_files);
     }
 }
 
