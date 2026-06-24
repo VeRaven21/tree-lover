@@ -4,6 +4,7 @@ use std::path::Path;
 mod errors;
 mod node;
 mod scanner;
+mod renderer;
 
 use scanner::read_directory_recursively;
 
