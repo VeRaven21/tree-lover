@@ -1,31 +1,41 @@
 use crate::node::DirNode;
 
-pub fn draw_tree(root: &DirNode, depth: usize, print_files: bool) {
-    let mut pre_symbols = String::from("╠");
-    for _ in 0..depth {
-        pre_symbols.push('═')
-    }
+pub fn draw_tree(root: &DirNode, depth: usize, print_files: bool) -> String {
+    let mut res = String::new();
+    res.push_str(&dir_name(root));
+    res.push_str(&draw_dirs(&root.children, depth + 1, print_files));
+    res
+}
 
-    let dir_name = root
-        .path
-        .file_name()
-        .unwrap_or(root.path.as_os_str())
-        .to_string_lossy();
-    println!(
-        "{}{} - {}",
-        pre_symbols,
-        dir_name,
-        get_size(root.total_size)
-    );
+fn draw_dirs(dirs: &Vec<DirNode>, depth: usize, files: bool) -> String {
+    let n = dirs.len();
+    let mut res = String::new();
 
-    for children in root.children.iter() {
-        draw_tree(children, depth + 1, print_files);
-    }
-    if print_files {
-        for file in root.files.iter() {
-            println!("{}═{} - {}", pre_symbols, file.name, get_size(file.size));
+    for i in 0..n {
+        let mut prefix = String::new();
+        if depth >= 2 {
+            for _ in 0..depth - 1 {
+                prefix.push('┃');
+            }
+        }
+        if n == 1 {
+            prefix.push('┝');
+        } else if i == 0 && n > 1 {
+            prefix.push('┢');
+        } else if i == n - 1 && !files {
+            prefix.push('┗');
+        } else if i == n - 1 && files {
+            prefix.push('┡');
+        }
+
+        let dir_name = dir_name(&dirs[i]);
+        if i < n - 1 {
+            res.push_str(&format!("{}{}\n", &prefix, dir_name));
+        } else {
+            res.push_str(&format!("{}{}", &prefix, dir_name));
         }
     }
+    res
 }
 
 fn get_size(size: u64) -> String {
@@ -47,6 +57,15 @@ fn get_size(size: u64) -> String {
     }
 }
 
+fn dir_name(dir: &DirNode) -> String {
+    String::from(
+        dir.path
+            .file_name()
+            .unwrap_or(dir.path.as_os_str())
+            .to_string_lossy(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,5 +76,6 @@ mod tests {
         assert_eq!(get_size(1), "1 b");
         assert_eq!(get_size(1023), "1023 b");
         assert_eq!(get_size(1024), "1 KB");
+        assert_eq!(get_size(1152921504606847000), "1024 PB")
     }
 }

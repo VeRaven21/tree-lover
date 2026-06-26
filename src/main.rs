@@ -11,11 +11,11 @@ use scanner::read_directory_recursively;
 
 #[derive(Parser)]
 struct Args {
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(short, long, default_value_t = 0)]
     print_files: u8,
 
     #[arg(long, default_value_t = -1)]
-    depth: i64
+    depth: i64,
 }
 
 fn main() -> Result<()> {
