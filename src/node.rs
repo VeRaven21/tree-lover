@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::renderer::draw_tree;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct DirNode {
     pub path: PathBuf,
     pub total_size: u64,
@@ -25,7 +25,7 @@ impl DirNode {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct FileNode {
     pub name: String,
     pub size: u64,

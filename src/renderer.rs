@@ -46,3 +46,16 @@ fn get_size(size: u64) -> String {
         format!("{:.2} {}", value, postfixes[exp])
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_size_edge_cases() {
+        assert_eq!(get_size(0), "0 b");
+        assert_eq!(get_size(1), "1 b");
+        assert_eq!(get_size(1023), "1023 b");
+        assert_eq!(get_size(1024), "1 KB");
+    }
+}

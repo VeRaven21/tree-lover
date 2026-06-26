@@ -33,3 +33,46 @@ pub fn read_directory_recursively(path: &Path) -> Result<DirNode, PathError> {
 
     Ok(node)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_build_empty_dir_tree() {
+        let tempdir = tempdir().unwrap();
+        let path = tempdir.path();
+
+        let node = read_directory_recursively(path).unwrap();
+        assert_eq!(node.children.len(), 0);
+        assert_eq!(node.files.len(), 0);
+    }
+
+    #[test]
+    fn test_dir_with_files() {
+        let tempdir = tempdir().unwrap();
+        let path = tempdir.path();
+
+        let filepath = path.join("a.txt");
+        let mut tempfile = File::create(filepath).unwrap();
+        writeln!(tempfile, "Hello, world!").unwrap();
+
+        let node = read_directory_recursively(path).unwrap();
+        assert_eq!(node.files.len(), 1);
+    }
+
+    #[test]
+    fn test_not_a_dir() {
+        let tempdir = tempdir().unwrap();
+
+        let filepath = tempdir.path().join("file.txt");
+        File::create(&filepath).unwrap();
+
+        let result = read_directory_recursively(&filepath);
+
+        assert!(result.is_err());
+    }
+}
