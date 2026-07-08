@@ -41,11 +41,9 @@ pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, Pa
                     if !filetype.is_symlink() {
                         if depth < 0 {
                             let child_node = read_directory_recursively(&entry_path, depth)?;
-                            node.total_size += child_node.total_size;
                             node.add_child(child_node);
                         } else if depth > 0 {
                             let child_node = read_directory_recursively(&entry_path, depth - 1)?;
-                            node.total_size += child_node.total_size;
                             node.add_child(child_node);
                         } else {
                             let child_node = DirNode::from(&entry_path);

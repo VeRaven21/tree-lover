@@ -43,6 +43,7 @@ impl DirNode {
     }
 
     pub fn add_child(&mut self, child: DirNode) {
+        self.total_size += child.total_size;
         self.children.push(child); // TODO Rewrite to insert in the right place
         self.children
             .sort_by(|a, b| b.total_size.cmp(&a.total_size)); // I think the right way is to add dot folders to the beginning
@@ -50,6 +51,7 @@ impl DirNode {
     }
 
     pub fn add_file(&mut self, file: FileNode) {
+        self.total_size += file.size;
         self.files.push(file); // TODO Rewrite to insert in the right place
         self.files.sort_by(|a, b| b.size.cmp(&a.size));
         self.files_num += 1;
