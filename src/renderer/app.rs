@@ -1,6 +1,9 @@
 use std::io;
 
-use crate::{node::DirNode, renderer::filetable};
+use crate::{
+    node::{DirNode, SomeNode},
+    renderer::filetable,
+};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
@@ -9,7 +12,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
     text::Line,
-    widgets::{Block, Table, Widget},
+    widgets::{Block, StatefulWidget, Table, TableState, Widget},
 };
 
 #[derive(Debug, Default)]
@@ -17,12 +20,17 @@ pub struct App<'a> {
     exit: bool,
 
     current_path: Vec<&'a DirNode>,
-    cursor: usize,
+    filetable_state: TableState,
 }
 
 impl<'a> App<'a> {
     pub fn run(&mut self, terminal: &mut DefaultTerminal, node: &'a DirNode) -> io::Result<()> {
         self.current_path.push(node);
+
+        self.filetable_state = TableState::default();
+
+        self.filetable_state.select(Some(0));
+
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
@@ -47,8 +55,10 @@ impl<'a> App<'a> {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit(),
-            KeyCode::Char('j') => self.cursor_down(),
-            KeyCode::Char('k') => self.cursor_up(),
+            KeyCode::Char('j') | KeyCode::Down => self.cursor_down(),
+            KeyCode::Char('k') | KeyCode::Up => self.cursor_up(),
+            KeyCode::Char('h') | KeyCode::Left => self.path_up(),
+            KeyCode::Char('l') | KeyCode::Right => self.path_down(),
             _ => {}
         }
     }
@@ -58,29 +68,45 @@ impl<'a> App<'a> {
     }
 
     fn cursor_down(&mut self) {
-        match self.current_node() {
-            Some(node) => {
-                if self.cursor < node.num_entries() - 1 {
-                    self.cursor += 1;
-                }
-            }
-            None => {}
-        }
+        self.filetable_state.select_next();
     }
 
     fn cursor_up(&mut self) {
-        match self.current_node() {
-            Some(_node) => {
-                if self.cursor > 0 {
-                    self.cursor -= 1;
-                }
-            }
-            None => {}
+        self.filetable_state.select_previous();
+    }
+
+    fn path_up(&mut self) {
+        if self.current_path.len() > 1 {
+            self.current_path.pop();
+            self.filetable_state.select(Some(0));
         }
     }
 
-    fn current_node(&self) -> Option<&DirNode> {
-        self.current_path.last().map(|a| &**a)
+    fn path_down(&mut self) {
+        let Some(current) = self.current_node() else {
+            return;
+        };
+
+        let Some(cp) = self.filetable_state.selected() else {
+            return;
+        };
+
+        if let Ok(SomeNode::Dir(dir)) = current.entry(cp) {
+            self.current_path.push(dir);
+            self.filetable_state.select(Some(0));
+        }
+    }
+
+    fn current_node(&self) -> Option<&'a DirNode> {
+        self.current_path.last().copied()
+    }
+
+    fn current_path(&self) -> String {
+        self.current_path
+            .iter()
+            .map(|node| node.name())
+            .collect::<Vec<_>>()
+            .join("/")
     }
 }
 
@@ -107,11 +133,11 @@ impl Widget for &App<'_> {
         let filetablerect = chunks[1];
         let filetableblock = Block::bordered();
 
-        let table: Table;
+        let mut table: Table;
         let current_dir: Line;
         match self.current_node() {
             Some(node) => {
-                current_dir = Line::from(node.name());
+                current_dir = Line::from(self.current_path());
                 table = filetable::fill_filetable(node);
             }
             None => {
@@ -119,8 +145,14 @@ impl Widget for &App<'_> {
                 table = Table::default();
             }
         }
+        table = table.row_highlight_style(Style::default().on_yellow());
 
-        table.render(filetableblock.inner(filetablerect), buf);
+        StatefulWidget::render(
+            table,
+            filetableblock.inner(filetablerect),
+            buf,
+            &mut self.filetable_state.clone(),
+        );
         filetableblock.render(filetablerect, buf);
         current_dir.render(pathblock.inner(pathrect), buf);
         pathblock.render(pathrect, buf);

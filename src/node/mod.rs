@@ -56,14 +56,19 @@ impl DirNode {
     }
 
     pub fn entry(&'_ self, i: usize) -> Result<SomeNode<'_>, DirNodeError> {
-        if i >= self.num_entries() - 1 {
+        let mut entries: Vec<SomeNode> = vec![];
+        for dir in self.children.iter() {
+            entries.push(SomeNode::Dir(dir));
+        }
+
+        for file in self.files.iter() {
+            entries.push(SomeNode::File(file));
+        }
+
+        if i >= entries.len() - 1 {
             return Err(DirNodeError::IndexOutOfRange(i));
         } else {
-            if i < self.children_num - 1 {
-                return Ok(SomeNode::Dir(&self.children[i]));
-            } else {
-                return Ok(SomeNode::File(&self.files[i - self.children_num - 1]));
-            }
+            return Ok(entries[i]);
         }
     }
 
@@ -113,6 +118,7 @@ impl FileNode {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum SomeNode<'a> {
     Dir(&'a DirNode),
     File(&'a FileNode),
