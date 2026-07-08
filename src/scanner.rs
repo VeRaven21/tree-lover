@@ -1,4 +1,4 @@
-use std::fs::{self, FileType, Permissions, read_dir};
+use std::fs::{self, Permissions, read_dir};
 use std::path::{Path, PathBuf};
 
 use crate::errors::PathError;

@@ -4,7 +4,6 @@ use std::path::PathBuf;
 mod errors;
 
 use errors::DirNodeError;
-// use crate::renderer::draw_tree;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct DirNode {
