@@ -9,6 +9,9 @@ pub enum PathError {
     #[error("Path is not a directory: {0}")]
     NotADirectory(PathBuf),
 
+    #[error("Path is unreadable, check permissions: {0}")]
+    PathUnreadable(PathBuf),
+
     #[error("IO error for path: {0}")]
     IoError(#[from] std::io::Error),
 }

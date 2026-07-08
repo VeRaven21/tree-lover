@@ -1,6 +1,6 @@
 use anyhow::Result;
-use std::fs::{Permissions, read_dir};
-use std::path::Path;
+use std::fs::{self, Permissions, read_dir};
+use std::path::{Path, PathBuf};
 
 use crate::errors::PathError;
 use crate::node::{DirNode, FileNode};
@@ -8,6 +8,10 @@ use crate::node::{DirNode, FileNode};
 pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, PathError> {
     if !path.is_dir() {
         return Err(PathError::NotADirectory(path.to_path_buf()));
+    }
+
+    if !readable(&path.to_path_buf()) {
+        return Err(PathError::PathUnreadable(path.to_path_buf()));
     }
 
     let metadata = path.metadata();
@@ -24,35 +28,43 @@ pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, Pa
     let mut node = DirNode::new(path.to_path_buf(), perm);
 
     for entry in read_dir(path)? {
-        // TODO actually check if ok, mentioned in #1
-        let entry = entry?;
-        let entry_path = entry.path();
+        match entry {
+            Ok(entry) => {
+                let entry_path = entry.path();
+                if entry_path.is_file() {
+                    let file_size = entry.metadata()?.len();
+                    let file_name = entry.file_name().to_string_lossy().into_owned();
 
-        if entry_path.is_file() {
-            let file_size = entry.metadata()?.len();
-            let file_name = entry.file_name().to_string_lossy().into_owned();
-
-            node.add_file(FileNode::new(file_name, file_size));
-            node.total_size += file_size;
-        } else {
-            if !entry_path.is_symlink() {
-                if depth < 0 {
-                    let child_node = read_directory_recursively(&entry_path, depth)?;
-                    node.total_size += child_node.total_size;
-                    node.add_child(child_node);
-                } else if depth > 0 {
-                    let child_node = read_directory_recursively(&entry_path, depth - 1)?;
-                    node.total_size += child_node.total_size;
-                    node.add_child(child_node);
+                    node.add_file(FileNode::new(file_name, file_size));
+                    node.total_size += file_size;
                 } else {
-                    let child_node = DirNode::from(&entry_path);
-                    node.add_child(child_node);
+                    if !entry_path.is_symlink() {
+                        if depth < 0 {
+                            let child_node = read_directory_recursively(&entry_path, depth)?;
+                            node.total_size += child_node.total_size;
+                            node.add_child(child_node);
+                        } else if depth > 0 {
+                            let child_node = read_directory_recursively(&entry_path, depth - 1)?;
+                            node.total_size += child_node.total_size;
+                            node.add_child(child_node);
+                        } else {
+                            let child_node = DirNode::from(&entry_path);
+                            node.add_child(child_node);
+                        }
+                    }
                 }
             }
+            Err(_) => {}
         }
     }
-
     Ok(node)
+}
+
+fn readable(path: &PathBuf) -> bool {
+    match fs::read_dir(path) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
