@@ -1,5 +1,4 @@
-use anyhow::Result;
-use std::fs::{self, Permissions, read_dir};
+use std::fs::{self, FileType, Permissions, read_dir};
 use std::path::{Path, PathBuf};
 
 use crate::errors::PathError;
@@ -31,14 +30,15 @@ pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, Pa
         match entry {
             Ok(entry) => {
                 let entry_path = entry.path();
-                if entry_path.is_file() {
+                let filetype = entry.file_type().unwrap();
+                if filetype.is_file() {
                     let file_size = entry.metadata()?.len();
                     let file_name = entry.file_name().to_string_lossy().into_owned();
 
                     node.add_file(FileNode::new(file_name, file_size));
                     node.total_size += file_size;
                 } else {
-                    if !entry_path.is_symlink() {
+                    if !filetype.is_symlink() {
                         if depth < 0 {
                             let child_node = read_directory_recursively(&entry_path, depth)?;
                             node.total_size += child_node.total_size;
