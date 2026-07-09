@@ -1,4 +1,4 @@
-use std::fs::{self, Permissions, read_dir};
+use std::fs::{self, read_dir};
 use std::path::{Path, PathBuf};
 
 use crate::errors::PathError;
@@ -13,16 +13,7 @@ pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, Pa
         return Err(PathError::PathUnreadable(path.to_path_buf()));
     }
 
-    let metadata = path.metadata();
-    let perm: Option<Permissions>;
-    match metadata {
-        Ok(metadata) => {
-            perm = Some(metadata.permissions());
-        }
-        Err(_) => {
-            perm = None;
-        }
-    }
+    let perm = path.metadata().ok().map(|m| m.permissions());
 
     let mut node = DirNode::new(path.to_path_buf(), perm);
 
@@ -105,5 +96,18 @@ mod tests {
         let result = read_directory_recursively(&filepath, -1);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_scan_depth() {
+        let main_dir = tempdir().unwrap();
+        let main_path = main_dir.path().to_path_buf();
+
+        let path = main_path.join("1/2/3/4/5");
+
+        _ = fs::create_dir_all(&path);
+
+        let node = read_directory_recursively(&main_path, 2).unwrap();
+        assert_eq!(node.children[0].children[0].children[0].children_num, 0);
     }
 }
