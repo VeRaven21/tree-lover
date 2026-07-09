@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use ratatui;
-use std::path::Path;
+use std::path::PathBuf;
 
 mod errors;
 mod node;
@@ -13,6 +13,8 @@ use scanner::read_directory_recursively;
 
 #[derive(Parser)]
 struct Args {
+    path: Option<PathBuf>,
+
     #[arg(short, long, default_value_t = 0)]
     print_files: u8,
 
@@ -25,9 +27,9 @@ fn main() -> Result<()> {
         panic!("Not implemented for windows lol")
     }
 
-    let path = Path::new(".");
     let args = Args::parse();
-    let tree = read_directory_recursively(path, args.depth)?;
+    let path = args.path.unwrap_or(PathBuf::from("."));
+    let tree = read_directory_recursively(&path, args.depth)?;
 
     ratatui::run(|terminal| App::default().run(terminal, &tree))?;
 
