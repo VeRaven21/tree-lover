@@ -29,7 +29,7 @@ pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, Pa
                     node.add_file(FileNode::new(file_name, file_size));
                     node.total_size += file_size;
                 } else {
-                    if !filetype.is_symlink() {
+                    if filetype.is_dir() {
                         if depth < 0 {
                             let child_node = read_directory_recursively(&entry_path, depth)?;
                             node.add_child(child_node);
