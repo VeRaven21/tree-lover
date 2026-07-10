@@ -68,7 +68,10 @@ impl<'a> App<'a> {
     }
 
     fn cursor_down(&mut self) {
-        self.filetable_state.select_next();
+        if self.filetable_state.selected().unwrap() < self.current_node().unwrap().num_entries() - 1
+        {
+            self.filetable_state.select_next();
+        }
     }
 
     fn cursor_up(&mut self) {
