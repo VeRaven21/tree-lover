@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use ratatui;
 use std::path::PathBuf;
 
 mod errors;

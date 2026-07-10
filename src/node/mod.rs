@@ -45,14 +45,14 @@ impl DirNode {
         self.total_size += child.total_size;
         self.children.push(child); // TODO Rewrite to insert in the right place
         self.children
-            .sort_by(|a, b| b.total_size.cmp(&a.total_size)); // I think the right way is to add dot folders to the beginning
+            .sort_by_key(|b| std::cmp::Reverse(b.total_size)); // I think the right way is to add dot folders to the beginning
         self.children_num += 1;
     }
 
     pub fn add_file(&mut self, file: FileNode) {
         self.total_size += file.size;
         self.files.push(file); // TODO Rewrite to insert in the right place
-        self.files.sort_by(|a, b| b.size.cmp(&a.size));
+        self.files.sort_by_key(|b| std::cmp::Reverse(b.size));
         self.files_num += 1;
     }
 
@@ -67,9 +67,9 @@ impl DirNode {
         }
 
         if i >= entries.len() - 1 {
-            return Err(DirNodeError::IndexOutOfRange(i));
+            Err(DirNodeError::IndexOutOfRange(i))
         } else {
-            return Ok(entries[i]);
+            Ok(entries[i])
         }
     }
 
@@ -92,13 +92,10 @@ impl From<&PathBuf> for DirNode {
     fn from(path: &PathBuf) -> Self {
         // I guess the only difference is that it reads perms itself
         let metadata = metadata(path);
-        let perms: Option<Permissions>;
-        match metadata {
-            Ok(metadata) => {
-                perms = Some(metadata.permissions());
-            }
-            Err(_) => perms = None,
-        }
+        let perms: Option<Permissions> = match metadata {
+            Ok(metadata) => Some(metadata.permissions()),
+            Err(_) => None,
+        };
         DirNode::new(path.clone(), perms)
     }
 }

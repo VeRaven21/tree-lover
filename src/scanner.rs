@@ -17,47 +17,37 @@ pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, Pa
 
     let mut node = DirNode::new(path.to_path_buf(), perm);
 
-    for entry in read_dir(path)? {
-        match entry {
-            Ok(entry) => {
-                let entry_path = entry.path();
-                let filetype = entry.file_type().unwrap();
-                if filetype.is_file() {
-                    let file_size = entry.metadata()?.len();
-                    let file_name = entry.file_name().to_string_lossy().into_owned();
+    for entry in read_dir(path)?.flatten() {
+        let entry_path = entry.path();
+        let filetype = entry.file_type().unwrap();
+        if filetype.is_file() {
+            let file_size = entry.metadata()?.len();
+            let file_name = entry.file_name().to_string_lossy().into_owned();
 
-                    node.add_file(FileNode::new(file_name, file_size));
-                    node.total_size += file_size;
-                } else {
-                    if filetype.is_dir() {
-                        if depth < 0 {
-                            if let Ok(child_node) = read_directory_recursively(&entry_path, depth) {
-                                node.add_child(child_node);
-                            }
-                        } else if depth > 0 {
-                            if let Ok(child_node) =
-                                read_directory_recursively(&entry_path, depth - 1)
-                            {
-                                node.add_child(child_node);
-                            }
-                        } else {
-                            let child_node = DirNode::from(&entry_path);
-                            node.add_child(child_node);
-                        }
+            node.add_file(FileNode::new(file_name, file_size));
+            node.total_size += file_size;
+        } else {
+            if filetype.is_dir() {
+                if depth < 0 {
+                    if let Ok(child_node) = read_directory_recursively(&entry_path, depth) {
+                        node.add_child(child_node);
                     }
+                } else if depth > 0 {
+                    if let Ok(child_node) = read_directory_recursively(&entry_path, depth - 1) {
+                        node.add_child(child_node);
+                    }
+                } else {
+                    let child_node = DirNode::from(&entry_path);
+                    node.add_child(child_node);
                 }
             }
-            Err(_) => {}
         }
     }
     Ok(node)
 }
 
 fn readable(path: &PathBuf) -> bool {
-    match fs::read_dir(path) {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    fs::read_dir(path).is_ok()
 }
 
 #[cfg(test)]
