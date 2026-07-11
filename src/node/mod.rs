@@ -56,14 +56,18 @@ impl DirNode {
         self.files_num += 1;
     }
 
-    pub fn entry(&'_ self, i: usize) -> Result<SomeNode<'_>, DirNodeError> {
+    pub fn entry(&'_ self, i: usize, dots: bool) -> Result<SomeNode<'_>, DirNodeError> {
         let mut entries: Vec<SomeNode> = vec![];
         for dir in self.children.iter() {
-            entries.push(SomeNode::Dir(dir));
+            if dots || !dir.name().starts_with(".") {
+                entries.push(SomeNode::Dir(dir));
+            }
         }
 
         for file in self.files.iter() {
-            entries.push(SomeNode::File(file));
+            if dots || !file.name.starts_with(".") {
+                entries.push(SomeNode::File(file));
+            }
         }
 
         if i >= entries.len() - 1 {

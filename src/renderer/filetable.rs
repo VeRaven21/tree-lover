@@ -3,17 +3,21 @@ use crate::node::{DirNode, SomeNode};
 use ratatui::layout::Constraint;
 use ratatui::widgets::{Row, Table};
 
-pub fn fill_filetable(node: &DirNode) -> Table<'_> {
+pub fn fill_filetable(node: &DirNode, draw_dots: bool) -> Table<'_> {
     let widths: Vec<Constraint> = vec![Constraint::Percentage(60), Constraint::Percentage(40)];
     let mut lines: Vec<[String; 2]> = vec![];
 
     for entry in node.entries().iter() {
         match entry {
             SomeNode::Dir(node) => {
-                lines.push([node.name(), get_size(node.total_size)]);
+                if draw_dots || !node.name().starts_with(".") {
+                    lines.push([node.name(), get_size(node.total_size)]);
+                }
             }
             SomeNode::File(node) => {
-                lines.push([node.name(), get_size(node.size)]);
+                if draw_dots || !node.name().starts_with(".") {
+                    lines.push([node.name(), get_size(node.size)]);
+                }
             }
         }
     }

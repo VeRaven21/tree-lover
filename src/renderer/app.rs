@@ -21,6 +21,8 @@ pub struct App<'a> {
 
     current_path: Vec<&'a DirNode>,
     filetable_state: TableState,
+
+    draw_dots: bool,
 }
 
 impl<'a> App<'a> {
@@ -30,6 +32,7 @@ impl<'a> App<'a> {
         self.filetable_state = TableState::default();
 
         self.filetable_state.select(Some(0));
+        self.draw_dots = true;
 
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
@@ -59,6 +62,7 @@ impl<'a> App<'a> {
             KeyCode::Char('k') | KeyCode::Up => self.cursor_up(),
             KeyCode::Char('h') | KeyCode::Left => self.path_up(),
             KeyCode::Char('l') | KeyCode::Right => self.path_down(),
+            KeyCode::Char('d') => self.switch_dots(),
             _ => {}
         }
     }
@@ -94,7 +98,7 @@ impl<'a> App<'a> {
             return;
         };
 
-        if let Ok(SomeNode::Dir(dir)) = current.entry(cp) {
+        if let Ok(SomeNode::Dir(dir)) = current.entry(cp, self.draw_dots) {
             self.current_path.push(dir);
             self.filetable_state.select(Some(0));
         }
@@ -110,6 +114,10 @@ impl<'a> App<'a> {
             .map(|node| node.name())
             .collect::<Vec<_>>()
             .join("/")
+    }
+
+    fn switch_dots(&mut self) {
+        self.draw_dots = !self.draw_dots;
     }
 }
 
@@ -141,7 +149,7 @@ impl Widget for &App<'_> {
         match self.current_node() {
             Some(node) => {
                 current_dir = Line::from(self.current_path());
-                table = filetable::fill_filetable(node);
+                table = filetable::fill_filetable(node, self.draw_dots);
             }
             None => {
                 current_dir = Line::default();
