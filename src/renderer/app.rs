@@ -62,7 +62,7 @@ impl<'a> App<'a> {
             KeyCode::Char('k') | KeyCode::Up => self.cursor_up(),
             KeyCode::Char('h') | KeyCode::Left => self.path_up(),
             KeyCode::Char('l') | KeyCode::Right => self.path_down(),
-            KeyCode::Char('d') => self.switch_dots(),
+            KeyCode::Char('s') => self.switch_dots(),
             _ => {}
         }
     }
