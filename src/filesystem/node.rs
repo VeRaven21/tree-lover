@@ -13,7 +13,7 @@ pub struct Node {
     pub children: Vec<usize>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NodeType {
     Dir,
     File,

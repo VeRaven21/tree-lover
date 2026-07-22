@@ -49,3 +49,48 @@ pub fn read_directory_recursively<P: AsRef<Path>>(path: P) -> Result<FileSystem,
 fn readable<P: AsRef<Path>>(path: P) -> bool {
     fs::read_dir(path).is_ok()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::filesystem::node::NodeType;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_build_empty_dir_tree() {
+        let tempdir = tempdir().unwrap();
+        let path = tempdir.path();
+
+        let fs = read_directory_recursively(path).unwrap();
+        assert_eq!(fs.arena.len(), 1);
+        assert_eq!(fs.arena[0].children.len(), 0);
+    }
+
+    #[test]
+    fn test_dir_with_files() {
+        let tempdir = tempdir().unwrap();
+        let path = tempdir.path();
+
+        let filepath = path.join("a.txt");
+        let mut tempfile = File::create(filepath).unwrap();
+        writeln!(tempfile, "Hello, world!").unwrap();
+
+        let fs = read_directory_recursively(path).unwrap();
+        assert_eq!(fs.arena[0].children.len(), 1);
+        assert_eq!(fs.arena[1].node_type, NodeType::File)
+    }
+
+    #[test]
+    fn test_not_a_dir() {
+        let tempdir = tempdir().unwrap();
+
+        let filepath = tempdir.path().join("file.txt");
+        File::create(&filepath).unwrap();
+
+        let result = read_directory_recursively(&filepath);
+
+        assert!(result.is_err());
+    }
+}
