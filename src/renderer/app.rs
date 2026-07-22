@@ -1,8 +1,10 @@
+//! # Main app render entry
+//! Usage of unwrap is ok because right now filetable is the only thing that can be selected
 use std::io;
 
 use crate::{
-    node::{DirNode, SomeNode},
-    renderer::filetable,
+    filesystem::{FileSystem, node::NodeType},
+    renderer::filetable::fill_filetable,
 };
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
@@ -16,18 +18,25 @@ use ratatui::{
 };
 
 #[derive(Debug, Default)]
-pub struct App<'a> {
+pub struct App {
     exit: bool,
 
-    current_path: Vec<&'a DirNode>,
+    filesystem: FileSystem,
+
+    current_path: Vec<usize>,
     filetable_state: TableState,
 
     draw_dots: bool,
 }
 
-impl<'a> App<'a> {
-    pub fn run(&mut self, terminal: &mut DefaultTerminal, node: &'a DirNode) -> io::Result<()> {
-        self.current_path.push(node);
+impl App {
+    pub fn run(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        filesystem: FileSystem,
+    ) -> io::Result<()> {
+        self.filesystem = filesystem;
+        self.current_path.push(0);
 
         self.filetable_state = TableState::default();
 
@@ -55,6 +64,7 @@ impl<'a> App<'a> {
         Ok(())
     }
 
+    /// Handle key presses
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit(),
@@ -63,6 +73,7 @@ impl<'a> App<'a> {
             KeyCode::Char('h') | KeyCode::Left => self.path_up(),
             KeyCode::Char('l') | KeyCode::Right => self.path_down(),
             KeyCode::Char('s') => self.switch_dots(),
+            KeyCode::Char('d') => self.delete_entry(),
             _ => {}
         }
     }
@@ -72,7 +83,8 @@ impl<'a> App<'a> {
     }
 
     fn cursor_down(&mut self) {
-        if self.filetable_state.selected().unwrap() < self.current_node().unwrap().num_entries() - 1
+        if self.filetable_state.selected().unwrap()
+            < self.filesystem.arena[self.current_node()].num_children() - 1
         {
             self.filetable_state.select_next();
         }
@@ -90,28 +102,28 @@ impl<'a> App<'a> {
     }
 
     fn path_down(&mut self) {
-        let Some(current) = self.current_node() else {
-            return;
-        };
-
+        let current = self.current_node();
         let Some(cp) = self.filetable_state.selected() else {
             return;
         };
 
-        if let Ok(SomeNode::Dir(dir)) = current.entry(cp, self.draw_dots) {
-            self.current_path.push(dir);
+        if let NodeType::Dir =
+            self.filesystem.arena[self.filesystem.arena[current].children[cp]].node_type
+        {
+            self.current_path
+                .push(self.filesystem.arena[current].children[cp]);
             self.filetable_state.select(Some(0));
         }
     }
 
-    fn current_node(&self) -> Option<&'a DirNode> {
-        self.current_path.last().copied()
+    fn current_node(&self) -> usize {
+        *self.current_path.last().unwrap()
     }
 
-    fn current_path(&self) -> String {
+    fn current_path_str(&self) -> String {
         self.current_path
             .iter()
-            .map(|node| node.name())
+            .map(|&node_index| self.filesystem.arena[node_index].name())
             .collect::<Vec<_>>()
             .join("/")
     }
@@ -119,9 +131,14 @@ impl<'a> App<'a> {
     fn switch_dots(&mut self) {
         self.draw_dots = !self.draw_dots;
     }
+
+    fn delete_entry(&mut self) {
+        let _selected = self.filetable_state.selected();
+        todo!()
+    }
 }
 
-impl Widget for &App<'_> {
+impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized,
@@ -144,18 +161,10 @@ impl Widget for &App<'_> {
         let filetablerect = chunks[1];
         let filetableblock = Block::bordered();
 
-        let mut table: Table;
-        let current_dir: Line;
-        match self.current_node() {
-            Some(node) => {
-                current_dir = Line::from(self.current_path());
-                table = filetable::fill_filetable(node, self.draw_dots);
-            }
-            None => {
-                current_dir = Line::default();
-                table = Table::default();
-            }
-        }
+        let mut table: Table =
+            fill_filetable(&self.filesystem, self.current_node(), self.draw_dots);
+        let current_path_line: Line = Line::from(self.current_path_str());
+
         table = table.row_highlight_style(Style::default().on_yellow());
 
         StatefulWidget::render(
@@ -165,7 +174,7 @@ impl Widget for &App<'_> {
             &mut self.filetable_state.clone(),
         );
         filetableblock.render(filetablerect, buf);
-        current_dir.render(pathblock.inner(pathrect), buf);
+        current_path_line.render(pathblock.inner(pathrect), buf);
         pathblock.render(pathrect, buf);
     }
 }

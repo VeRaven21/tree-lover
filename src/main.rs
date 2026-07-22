@@ -1,9 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
-use std::path::PathBuf;
+use std::path::{self, PathBuf};
 
 mod errors;
-mod node;
+mod filesystem;
 mod renderer;
 mod scanner;
 
@@ -16,9 +16,6 @@ struct Args {
 
     #[arg(short, long, default_value_t = 0)]
     print_files: u8,
-
-    #[arg(long, default_value_t = -1)]
-    depth: i64,
 }
 
 fn main() -> Result<()> {
@@ -27,10 +24,13 @@ fn main() -> Result<()> {
     }
 
     let args = Args::parse();
-    let path = args.path.unwrap_or(PathBuf::from("."));
-    let tree = read_directory_recursively(&path, args.depth)?;
+    let mut path = args.path.unwrap_or(PathBuf::from("."));
+    if !path.is_absolute() {
+        path = path::absolute(path).unwrap();
+    }
+    let tree = read_directory_recursively(path)?;
 
-    ratatui::run(|terminal| App::default().run(terminal, &tree))?;
+    ratatui::run(|terminal| App::default().run(terminal, tree))?;
 
     Ok(())
 }

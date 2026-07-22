@@ -1,24 +1,18 @@
-use crate::node::{DirNode, SomeNode};
+use crate::filesystem::{FileSystem, Node};
 
 use ratatui::layout::Constraint;
 use ratatui::widgets::{Row, Table};
 
-pub fn fill_filetable(node: &DirNode, draw_dots: bool) -> Table<'_> {
+pub fn fill_filetable(filesystem: &FileSystem, index: usize, draw_dots: bool) -> Table<'_> {
     let widths: Vec<Constraint> = vec![Constraint::Percentage(60), Constraint::Percentage(40)];
     let mut lines: Vec<[String; 2]> = vec![];
 
-    for entry in node.entries().iter() {
-        match entry {
-            SomeNode::Dir(node) => {
-                if draw_dots || !node.name().starts_with(".") {
-                    lines.push([node.name(), get_size(node.total_size)]);
-                }
-            }
-            SomeNode::File(node) => {
-                if draw_dots || !node.name().starts_with(".") {
-                    lines.push([node.name(), get_size(node.size)]);
-                }
-            }
+    let node: &Node = &filesystem.arena[index];
+
+    for &child_index in node.children.iter() {
+        let child_name = filesystem.arena[child_index].name();
+        if draw_dots || !child_name.starts_with(".") {
+            lines.push([child_name, get_size(filesystem.arena[child_index].size)]);
         }
     }
 
@@ -31,7 +25,7 @@ pub fn fill_filetable(node: &DirNode, draw_dots: bool) -> Table<'_> {
     Table::new(rows, widths)
 }
 
-fn get_size(size: u64) -> String {
+fn get_size(size: usize) -> String {
     if size == 0 {
         return String::from("0 b");
     }

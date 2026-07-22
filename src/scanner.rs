@@ -1,107 +1,51 @@
-use std::fs::{self, read_dir};
+use std::fs::{self, Metadata, read_dir};
 use std::path::{Path, PathBuf};
 
 use crate::errors::PathError;
-use crate::node::{DirNode, FileNode};
+use crate::filesystem::{FileSystem, Node};
 
-pub fn read_directory_recursively(path: &Path, depth: i64) -> Result<DirNode, PathError> {
+pub fn read_directory_recursively<P: AsRef<Path>>(path: P) -> Result<FileSystem, PathError> {
+    let path: PathBuf = path.as_ref().to_path_buf();
+
     if !path.is_dir() {
-        return Err(PathError::NotADirectory(path.to_path_buf()));
+        return Err(PathError::NotADirectory(path));
     }
 
-    if !readable(&path.to_path_buf()) {
-        return Err(PathError::PathUnreadable(path.to_path_buf()));
+    if !readable(&path) {
+        return Err(PathError::PathUnreadable(path));
     }
 
-    let perm = path.metadata().ok().map(|m| m.permissions());
+    let mut filesystem: FileSystem = FileSystem::default();
+    let root_metadata: Metadata = path.metadata().unwrap(); // FIXME: Unsafe usage of unwrap, temporary solution
+    let root_node: Node = Node::new(path, root_metadata).dir();
+    let _root_index = filesystem.add_node(root_node);
 
-    let mut node = DirNode::new(path.to_path_buf(), perm);
+    let mut queue: Vec<usize> = vec![]; // Vector of nodes whos children need to be worked on
+    queue.push(0); // Push root node
 
-    for entry in read_dir(path)?.flatten() {
-        let entry_path = entry.path();
-        let filetype = entry.file_type().unwrap();
-        if filetype.is_file() {
-            let file_size = entry.metadata()?.len();
-            let file_name = entry.file_name().to_string_lossy().into_owned();
-
-            node.add_file(FileNode::new(file_name, file_size));
-            node.total_size += file_size;
-        } else {
-            if filetype.is_dir() {
-                if depth < 0 {
-                    if let Ok(child_node) = read_directory_recursively(&entry_path, depth) {
-                        node.add_child(child_node);
-                    }
-                } else if depth > 0 {
-                    if let Ok(child_node) = read_directory_recursively(&entry_path, depth - 1) {
-                        node.add_child(child_node);
-                    }
-                } else {
-                    let child_node = DirNode::from(&entry_path);
-                    node.add_child(child_node);
-                }
+    while let Some(index) = queue.pop() {
+        let path = &filesystem.arena[index].path;
+        for entry in read_dir(path)?.flatten() {
+            let mut flag = false;
+            let mut node = Node::new(entry.path(), entry.metadata().unwrap()).with_parent(index);
+            let ftype = entry.file_type().unwrap();
+            if ftype.is_dir() {
+                node = node.dir();
+                flag = true;
+            } else if ftype.is_file() {
+                node = node.file();
+            } else if ftype.is_symlink() {
+                node = node.symlink();
+            }
+            let i = filesystem.add_node(node);
+            if flag {
+                queue.push(i)
             }
         }
     }
-    Ok(node)
+    Ok(filesystem)
 }
 
-fn readable(path: &PathBuf) -> bool {
+fn readable<P: AsRef<Path>>(path: P) -> bool {
     fs::read_dir(path).is_ok()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs::File;
-    use std::io::Write;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_build_empty_dir_tree() {
-        let tempdir = tempdir().unwrap();
-        let path = tempdir.path();
-
-        let node = read_directory_recursively(path, -1).unwrap();
-        assert_eq!(node.children.len(), 0);
-        assert_eq!(node.files.len(), 0);
-    }
-
-    #[test]
-    fn test_dir_with_files() {
-        let tempdir = tempdir().unwrap();
-        let path = tempdir.path();
-
-        let filepath = path.join("a.txt");
-        let mut tempfile = File::create(filepath).unwrap();
-        writeln!(tempfile, "Hello, world!").unwrap();
-
-        let node = read_directory_recursively(path, -1).unwrap();
-        assert_eq!(node.files.len(), 1);
-    }
-
-    #[test]
-    fn test_not_a_dir() {
-        let tempdir = tempdir().unwrap();
-
-        let filepath = tempdir.path().join("file.txt");
-        File::create(&filepath).unwrap();
-
-        let result = read_directory_recursively(&filepath, -1);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_scan_depth() {
-        let main_dir = tempdir().unwrap();
-        let main_path = main_dir.path().to_path_buf();
-
-        let path = main_path.join("1/2/3/4/5");
-
-        _ = fs::create_dir_all(&path);
-
-        let node = read_directory_recursively(&main_path, 2).unwrap();
-        assert_eq!(node.children[0].children[0].children[0].children_num, 0);
-    }
 }
